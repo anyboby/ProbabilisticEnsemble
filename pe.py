@@ -89,9 +89,11 @@ class PE:
             self.num_nets, self.model_loaded = self.layers[0].get_ensemble_size(), True
             print("Model loaded from %s." % self.model_dir)
             self.num_elites = params['num_elites']
+            self._model_inds = np.random.randint(self.num_nets, size=self.num_elites)
         else:
             self.num_nets = params.get('num_networks', 1)
             self.num_elites = params['num_elites'] #params.get('num_elites', 1)
+            self._model_inds = np.random.randint(self.num_nets, size=self.num_elites)
             self.model_loaded = False
 
         if self.num_nets == 1:
@@ -267,7 +269,7 @@ class PE:
                 self.loss = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, weights=self.weights)
                 self.tensor_loss, self.debug_mean = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, tensor_loss=True, weights=self.weights)            
             elif self.loss_type == 'MSPE':
-                train_loss = tf.reduce_sum(self._nll_loss(self.sy_train_in, 
+                train_loss = tf.reduce_sum(self._mspe_loss(self.sy_train_in, 
                                                             self.sy_train_targ, 
                                                             inc_var_loss=True,)
                                                             )
@@ -678,10 +680,14 @@ class PE:
         if len(inputs.shape) == 2:
             if factored:
                 if inc_var and self.is_probabilistic:
-                    return self.sess.run(
+                    mean, var = self.sess.run(
                             [self.sy_pred_mean2d_fac, self.sy_pred_var2d_fac],
                             feed_dict={self.sy_pred_in2d: inputs}
                         )
+                    # if self.loss_type=="MSPE":
+                    #     disagreement_penalty = np.exp(-10 * np.var(mean, axis=0)/self.scaler_out.cached_var)[None]
+                    #     var *= disagreement_penalty
+                    return mean, var
                 elif inc_var and not self.is_probabilistic:
                     means = self.sess.run(
                             self.sy_pred_mean2d_fac,
@@ -842,7 +848,7 @@ class PE:
             if debug:
                 self.layers_deb.append(cur_out)
 
-        mean = cur_out[:, :, :dim_output//2] if self.is_probabilistic else cur_out
+        mean = cur_out[..., :dim_output//2] if self.is_probabilistic else cur_out
 
         if self.end_act is not None and not raw_output:
             mean = self.end_act(mean)
@@ -852,20 +858,7 @@ class PE:
             self.mean_deb = mean
 
         if self.is_probabilistic:
-            # logvar = self.max_logvar - tf.nn.softplus(self.max_logvar - cur_out[:, :, dim_output//2:])      ### healthier gradients than clip
-            # logvar = self.min_logvar + tf.nn.softplus(logvar - self.min_logvar)
-            
-            # if self.use_scaler_out and scale_output:
-            #     var = tf.exp(logvar)
-            #     var = self.scaler_out.inverse_transform_var(var)
-            #     logvar = tf.log(var)
-            #     self.logvar_deb = logvar
-            # if ret_log_var: 
-            #     var = logvar
-            # else:
-            #     var = tf.exp(logvar)
-
-            logvar = cur_out[:, :, dim_output//2:]
+            logvar = 5 * tf.tanh(cur_out[..., dim_output//2:]) + .1 * cur_out[..., dim_output//2:]
             if self.use_scaler_out and scale_output:
                 logvar = self.scaler_out.inverse_transform_logvar(logvar)
 
@@ -984,13 +977,25 @@ class PE:
         #### rescale targets if set to true
         if self.use_scaler_out:
             targets = self.scaler_out.transform(targets)
-            
-        mse_losses = tf.square(mean - targets)
-        var_losses = tf.square(log_var - tf.stop_gradient(mse_losses))
-        ratio = 0.1*tf.reduce_mean(tf.stop_gradient(mse_losses))/tf.reduce_mean(tf.stop_gradient(var_losses))
-        mse_losses = tf.reduce_mean(tf.reduce_mean(0.5*tf.square(mean - targets), axis=-1),axis=-1)
-        var_losses = tf.reduce_mean(tf.reduce_mean(0.5*tf.square(log_var-tf.stop_gradient(tf.square(mean - targets))), axis=-1), axis=-1)
-        total_losses = tf.reduce_mean(tf.reduce_mean(mse_losses, axis=-1), axis=-1) + ratio * tf.reduce_mean(tf.reduce_mean(var_losses, axis=-1), axis=-1)
+
+        var_pred = tf.exp(log_var)
+        inv_var = tf.stop_gradient(var_pred)
+
+        mse_losses_logit = tf.square(mean - targets)
+
+        predictor_var_logit = tf.stop_gradient(tf.math.reduce_variance(mean, axis=0))[tf.newaxis]
+        var_losses_logit = tf.square(var_pred - tf.stop_gradient(mse_losses_logit))
+        ratio = 0.1 * tf.reduce_mean(tf.stop_gradient(mse_losses_logit))/tf.reduce_mean(tf.stop_gradient(var_losses_logit))
+
+        mse_losses = tf.reduce_mean(tf.reduce_mean(mse_losses_logit, axis=-1),axis=-1)
+        var_losses = tf.reduce_mean(tf.reduce_mean(var_losses_logit * ratio, axis=-1), axis=-1)
+        # mean_logit_logvar = tf.stop_gradient(tf.reduce_mean(tf.reduce_mean(log_var, axis=0), axis=0)[tf.newaxis, tf.newaxis])
+        var_reg_loss_logit = tf.abs(log_var)
+        reg_ratio = 5e-3 * tf.reduce_mean(tf.stop_gradient(mse_losses_logit))/tf.reduce_mean(tf.stop_gradient(var_reg_loss_logit))
+        var_reg_loss = tf.reduce_mean(var_reg_loss_logit * reg_ratio)
+        
+        total_losses = mse_losses + var_losses + var_reg_loss
+        
         return total_losses
 
 
