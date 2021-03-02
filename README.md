@@ -19,7 +19,7 @@ run.py provides an example for how to build the model. The pe_factory serves as 
 
 The main purpose of this model is to provide scale-invariant epistemic uncertainty estimates in terms of the average KL divergence between ensemble models. It will take some training for these estimates to take place, but a modified 'MSPE' loss (as opposed to Negative Log-Likelihood MLE) provides more stable variance predictions in unknown regions. 
 
-![Results of the example run.py](https://photos.google.com/share/AF1QipPUuXNyrVrEddhFCwQc-LRfW-C1ACDS6ObUbbUUBccaxb1CwLo6P7yODtEKY78WUw/photo/AF1QipOya1e6P0MKhCh2Fci9Bbm3fAZgP9VumiFs8oBt?key=bXFPTzN4NEYxSkdMdnBnYi1BcWdiUDUwVnJpQXV3)
+![Results of the example run.py](https://lh3.googleusercontent.com/pw/ACtC-3cWhZQNPlDDqQC-YtzXaFgA1cDyIt0AyxFBdkj_lNdcQxwXMBdJH2IHKbrk9LfvCDykJa7Qwf7gEiPP-hkor-cLuousEae3jipKl9JGqeil8wh7yrbO-HKSPV1aWxwcjrvnYlMlvUxW6wVT68gzu2gFfw=w1549-h911-no?authuser=0)
 
 ## Parameters
 Most parameters in this model will follow the common understanding, there are, however a number of special things to consider:
