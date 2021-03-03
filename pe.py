@@ -858,7 +858,7 @@ class PE:
             self.mean_deb = mean
 
         if self.is_probabilistic:
-            logvar = 5 * tf.tanh(cur_out[..., dim_output//2:]) + .1 * cur_out[..., dim_output//2:]
+            logvar = 5 * tf.tanh(cur_out[..., dim_output//2:])# + .1 * cur_out[..., dim_output//2:]
             if self.use_scaler_out and scale_output:
                 logvar = self.scaler_out.inverse_transform_logvar(logvar)
 

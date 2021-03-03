@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 COLOR = ['red', 'blue', 'orange', 'purple', 'turquoise']
 training_bs = 5000
-x = np.random.normal(0.7, scale=3.7, size=training_bs)[...,None]
-y =  100 * (x + 5*np.cos(x) + (np.tanh(x)+1.5) * np.random.normal(0, scale=1, size=training_bs)[...,None]) # * (np.sin(x) + 3 * np.cos(x)**2)
+x = np.random.normal(0.7, scale=5.7, size=training_bs)[...,None]
+y =  100 * (x + 5*np.cos(x) + 2 * (np.tanh(x)+1.5) * np.random.normal(0, scale=1, size=training_bs)[...,None]) # * (np.sin(x) + 3 * np.cos(x)**2)
 x_dims = np.shape(x)[-1]
 y_dims = np.shape(y)[-1]
 loss = 'MSPE'
@@ -17,7 +17,7 @@ num_nets = 7
 num_elites = 5
 gpu_options = tf.GPUOptions(allow_growth=True)
 sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-epochs = [15, 100, 250, 1000, 5000]
+epochs = [15, 100, 250, 1000]
 fig, axes = plt.subplots(2, 1, sharex=True, gridspec_kw={'hspace':0.1, 'wspace':0.1})
 ax_iter = axes.ravel().tolist()
 data_ax = ax_iter[0]
@@ -29,7 +29,7 @@ model = build_PE(in_dim=x_dims,
                         name='PE',
                         loss=loss,
                         hidden_dims=hidden_dims,
-                        lr=1e-3,
+                        lr=5e-3,
                         num_networks=num_nets, 
                         num_elites=num_elites,
                         use_scaler_in = True,
@@ -44,13 +44,13 @@ init_l = tf.local_variables_initializer()
 sess.run([init_g, init_l])
 
 test_bs = 1000
-test_x = np.linspace(-15,15, num=test_bs)
+test_x = np.linspace(-25,25, num=test_bs)
 
 
 for epoch in epochs:
     model_metrics = model.train(x, 
                             y,
-                            batch_size=128, #512
+                            batch_size=1024, #512
                             max_epochs=epoch+1, # max_epochs 
                             min_epoch_before_break=epoch, # min_epochs, 
                             holdout_ratio=0.2, 

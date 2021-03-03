@@ -22,12 +22,11 @@ The main purpose of this model is to provide scale-invariant epistemic uncertain
 ![Results of the example run.py](https://lh3.googleusercontent.com/pw/ACtC-3cWhZQNPlDDqQC-YtzXaFgA1cDyIt0AyxFBdkj_lNdcQxwXMBdJH2IHKbrk9LfvCDykJa7Qwf7gEiPP-hkor-cLuousEae3jipKl9JGqeil8wh7yrbO-HKSPV1aWxwcjrvnYlMlvUxW6wVT68gzu2gFfw=w1549-h911-no?authuser=0)
 
 ## Parameters
-Most parameters in this model will follow the common understanding, there are, however a number of special things to consider:
-
-1. 
-2. Loss Type: You can choose the loss type per string among a selection of ['MSPE', 'NLL', 'MSE', 'Huber', 'CE']. The CE loss will require a slightly different formatting for inputs and outputs. 
-3. use_scaler: The scaler can be used for both inputs and outputs. It normalized training samples to mean 0 and std. 0 with a running mean and std. Scaling outputs should be done with caution and has only been tested for MSE, NLL and MSPE.
-4. The 'MSPE' loss is the main distinction of this paper and serves as an alternative loss for probabilistic predictions. Instead of performing MLE (as NLL does), it directly approximates the MSE of a prediction. We find this to be more well-behaved in certaint situations which is a crucial factor in computing the average Kullback-Leibler divergence between predictions. 
+Most parameters in this model will follow the common understanding. There are, however a number of special things to consider:
+ 
+1. Loss Type: You can choose the loss type per string among a selection of ['MSPE', 'NLL', 'MSE', 'Huber', 'CE']. The CE loss will require a slightly different formatting for inputs and outputs. 
+2. use_scaler: The scaler can be used for both inputs and outputs. It normalizes training samples to mean 0 and std 1 with a running mean and std. Scaling outputs should be done with caution and has only been tested for MSE, NLL and MSPE. The variance prediction of the MSPE loss is based on output scaling and should thus also be used in junction with output scaling.
+3. The 'MSPE' loss is the main distinctive feature of this repo and serves as an alternative loss for probabilistic predictions. Instead of performing MLE (as NLL does), it directly approximates the MSE of a prediction. Empirically, this appears to be more well-behaved for variance predictions in unseen regions which is a crucial factor in computing the average Kullback-Leibler divergence between predictions.
 
 
 ## Acknowledgement
