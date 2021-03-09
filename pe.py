@@ -200,7 +200,7 @@ class PE:
                     else:
                         self.scaler_out = TensorStandardScaler(self.layers[-1].get_output_dim(), name='scaler_out')
                         
-                if self.loss_type=='NLL':
+                if self.loss_type=='NLL' or self.loss_type=='MSPE':
                     self.max_logvar = tf.Variable(np.ones([1, self.layers[-1].get_output_dim() // 2])*self.max_logvar_param, dtype=tf.float32,
                                                 name="max_log_var")
                     self.min_logvar = tf.Variable(np.ones([1, self.layers[-1].get_output_dim() // 2])*self.min_logvar_param, dtype=tf.float32,
@@ -210,7 +210,7 @@ class PE:
                         layer.construct_vars()
                         self.decays.extend(layer.get_decays())
                         self.optvars.extend(layer.get_vars())
-        if self.loss_type=='NLL':
+        if self.loss_type=='NLL' or self.loss_type=='MSPE':
             self.optvars.extend([self.max_logvar, self.min_logvar])
         if self.use_scaler_in:
             self.nonoptvars.extend(self.scaler_in.get_vars())
@@ -265,7 +265,8 @@ class PE:
                                                             oldpred_var = self.old_pred_var_ph)
                                                             )
                 train_loss += tf.add_n(self.decays)
-                train_loss += 0.01 * tf.reduce_sum(self.max_logvar) - 0.01 * tf.reduce_sum(self.min_logvar)
+                # train_loss += 0.01 * tf.reduce_sum(self.max_logvar) - 0.01 * tf.reduce_sum(self.min_logvar)
+                train_loss -= 0.02 * tf.reduce_sum(self.max_logvar)
                 self.loss = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, weights=self.weights)
                 self.tensor_loss, self.debug_mean = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, tensor_loss=True, weights=self.weights)            
             elif self.loss_type == 'MSPE':
@@ -274,6 +275,7 @@ class PE:
                                                             inc_var_loss=True,)
                                                             )
                 train_loss += tf.add_n(self.decays)
+                train_loss -= 0.02 * tf.reduce_sum(self.max_logvar)
                 self.loss = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, weights=self.weights)
                 self.tensor_loss, self.debug_mean = self._nll_loss(self.sy_train_in, self.sy_train_targ, inc_var_loss=False, tensor_loss=True, weights=self.weights)            
 
@@ -858,7 +860,7 @@ class PE:
             self.mean_deb = mean
 
         if self.is_probabilistic:
-            logvar = 5 * tf.tanh(cur_out[..., dim_output//2:])# + .1 * cur_out[..., dim_output//2:]
+            logvar = 5 * (tf.tanh(cur_out[..., dim_output//2:])-5 + self.max_logvar) #tf.clip_by_value(self.max_logvar, tf.stop_gradient(self.max_logvar)-1e-1, tf.stop_gradient(self.max_logvar)+1e-1)) # + .1 * cur_out[..., dim_output//2:]
             if self.use_scaler_out and scale_output:
                 logvar = self.scaler_out.inverse_transform_logvar(logvar)
 
@@ -994,7 +996,7 @@ class PE:
         reg_ratio = 5e-3 * tf.reduce_mean(tf.stop_gradient(mse_losses_logit))/tf.reduce_mean(tf.stop_gradient(var_reg_loss_logit))
         var_reg_loss = tf.reduce_mean(var_reg_loss_logit * reg_ratio)
         
-        total_losses = mse_losses + var_losses + var_reg_loss
+        total_losses = mse_losses + var_losses #+ var_reg_loss
         
         return total_losses
 

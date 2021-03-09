@@ -11,7 +11,7 @@ We typically prefer installs via anaconda, even though installs through other vi
 ``` bash
 conda create -n pe_env python=3.6
 conda activate pe_env
-pip install -r req.txt
+pip install -r requirements.txt
 ```
 
 ## Usage

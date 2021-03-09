@@ -11,17 +11,20 @@ x = np.random.normal(0.7, scale=5.7, size=training_bs)[...,None]
 y =  100 * (x + 5*np.cos(x) + 2 * (np.tanh(x)+1.5) * np.random.normal(0, scale=1, size=training_bs)[...,None]) # * (np.sin(x) + 3 * np.cos(x)**2)
 x_dims = np.shape(x)[-1]
 y_dims = np.shape(y)[-1]
-loss = 'MSPE'
+loss = 'NLL'
 hidden_dims = (40,40,40)
 num_nets = 7
 num_elites = 5
 gpu_options = tf.GPUOptions(allow_growth=True)
 sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-epochs = [15, 100, 250, 1000]
-fig, axes = plt.subplots(2, 1, sharex=True, gridspec_kw={'hspace':0.1, 'wspace':0.1})
+epochs = [100, 250, 1000, 2000, 5000]
+fig, axes = plt.subplots(len(epochs), 2, sharex=True, gridspec_kw={'hspace':0.1, 'wspace':0.1})
 ax_iter = axes.ravel().tolist()
-data_ax = ax_iter[0]
-kl_ax = ax_iter[1]
+np_axes = np.asarray(ax_iter)
+np_axes = np.swapaxes(np_axes.reshape(len(epochs),2), 0 , 1)
+
+data_axes = np_axes[0]
+kl_axes = np_axes[1]
 
 
 model = build_PE(in_dim=x_dims, 
@@ -47,7 +50,7 @@ test_bs = 1000
 test_x = np.linspace(-25,25, num=test_bs)
 
 
-for epoch in epochs:
+for epoch, data_ax, kl_ax in zip(epochs, data_axes, kl_axes):
     model_metrics = model.train(x, 
                             y,
                             batch_size=1024, #512
@@ -60,7 +63,7 @@ for epoch in epochs:
     pred_stds = np.sqrt(pred_var)
     pred_min, pred_max = pred_mean-pred_stds, pred_mean+pred_stds
 
-    el_inds = model.elite_inds #[model.elite_inds[0], model.elite_inds[-3], model.elite_inds[-1]]        ## only returns elite indices
+    el_inds = model.elite_inds[:3] #[model.elite_inds[0], model.elite_inds[-3], model.elite_inds[-1]]        ## only returns elite indices
     elite_means, elite_mins, elite_maxs, elite_stds = pred_mean[el_inds], \
                                             pred_min[el_inds], \
                                             pred_max[el_inds], \
@@ -76,17 +79,16 @@ for epoch in epochs:
 
     kl_ax.plot(test_x, dkls, label=f"Avg. ens. KL Divergence@{epoch}")
     # kl_ax.plot(test_x, mean_vars, label=f"norm. var. of ens. means@{epoch}")
+    kl_ax.scatter(x, y/np.std(y), s=0.1, color='green', label="Training (X,Y)")
+    kl_ax.legend()
 
-for i, elite_mean, elite_min, elite_max in zip(range(len(elite_means)), elite_means, elite_mins, elite_maxs):
-    elite_mean, elite_min, elite_max = np.squeeze(elite_mean), np.squeeze(elite_min), np.squeeze(elite_max)
-    data_ax.plot(test_x, elite_mean, color=COLOR[i], label=f'Model {i} w. Std.')  # Plot some data on the axes.
-    data_ax.fill_between(test_x, elite_min, elite_max, alpha=0.2, color=COLOR[i])
+    for i, elite_mean, elite_min, elite_max in zip(range(len(elite_means)), elite_means, elite_mins, elite_maxs):
+        elite_mean, elite_min, elite_max = np.squeeze(elite_mean), np.squeeze(elite_min), np.squeeze(elite_max)
+        data_ax.plot(test_x, elite_mean, color=COLOR[i], label=f'Model {i} w. Std.')  # Plot some data on the axes.
+        data_ax.fill_between(test_x, elite_min, elite_max, alpha=0.2, color=COLOR[i])
+    data_ax.scatter(x, y, s=0.5, color='green', label="Training (X,Y)")
+    data_ax.legend()
 
-kl_ax.scatter(x, y/np.std(y), s=0.1, color='green', label="Training (X,Y)")
-kl_ax.legend()
-
-data_ax.scatter(x, y, s=0.5, color='green', label="Training (X,Y)")
-data_ax.legend()
 
 # fig.legend()
 # ax.plot(test_x, test_y)  # Plot some data on the axes.
