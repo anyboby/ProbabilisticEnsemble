@@ -71,14 +71,9 @@ def build_PE(in_dim,
 
 	return model
 
-def format_samples_for_dyn(samples, priors = None, noise=None):
+def format_samples_for_dyn(samples, noise=None):
 	"""
 	formats samples to fit training, specifically returns: 
-
-	if priors are given, they will be concatenated to the inputs. 
-	priors have to be the same length in the first dimension as the samples
-	given (that is, the number of samples)
-
 	inputs, outputs:
 
 	inputs = np.concatenate((observations, act, priors), axis=-1)
@@ -94,11 +89,7 @@ def format_samples_for_dyn(samples, priors = None, noise=None):
 	delta_obs = next_obs - obs
 
 	#### ----END preprocess samples for model training in safety gym -----####
-	if priors is not None:
-		inputs = np.concatenate((obs, act, priors), axis=-1)
-	else:
-		inputs = np.concatenate((obs, act), axis=-1)
-
+	inputs = np.concatenate((obs, act), axis=-1)
 	outputs = np.concatenate((delta_obs, rew[..., None]), axis=-1)
 
 	# add noise
@@ -107,15 +98,10 @@ def format_samples_for_dyn(samples, priors = None, noise=None):
 
 	return inputs, outputs
 
-def format_samples_for_cost(samples, oversampling=False, one_hot = True, num_classes=2, priors = None, noise=None):
+def format_samples_for_cost(samples, oversampling=False, one_hot = True, num_classes=2, noise=None):
 	"""
 	formats samples to fit training for cost, specifically returns: 
-
-	if priors are given, they will be concatenated to the inputs. 
-	priors have to be the same length in the first dimension as the samples
-	given (that is, the number of samples)
-
-	Currently only uses next_obs for inputs of the cost, implying: C = f(s')
+	(obs, act, next_obs)
 
 	Args:
 		one_hot: determines whether targets are structured as classification or regression
@@ -136,12 +122,7 @@ def format_samples_for_cost(samples, oversampling=False, one_hot = True, num_cla
 	else:
 		outputs = cost[:, None]
 
-	if priors is not None:
-		inputs = np.concatenate((obs, act, next_obs, priors), axis=-1)
-	else:
-		inputs = np.concatenate((obs, act, next_obs), axis=-1)
-
-	
+	inputs = np.concatenate((obs, act, next_obs), axis=-1)
 	## ________________________________ ##
 	##      oversample cost classes     ##
 	## ________________________________ ##
@@ -169,10 +150,6 @@ def _add_noise(data_inp, noiseToSignal):
             data[:,j] = np.copy(data[:,j]+np.random.normal(0, np.absolute(std_of_noise[j]), (data.shape[0],)))
     return data
 
-
 def reset_model(model):
 	model_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=model.name)
 	model.sess.run(tf.initialize_vars(model_vars))
-
-if __name__ == '__main__':
-	model = construct_model()
